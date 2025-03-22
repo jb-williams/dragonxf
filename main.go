@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-type Hero struct {
+type Heroxf struct {
 	XP     int
 	ST     int
 	AC     int
@@ -25,7 +25,7 @@ type Hero struct {
 	PrevXP int // Track previous XP to determine level-up conditions
 }
 
-type Dragon struct {
+type Dragonxf struct {
 	PR   int
 	AC   int
 	MX   int
@@ -34,38 +34,38 @@ type Dragon struct {
 	Dth  int
 }
 
-var hero Hero
-var dragon Dragon
+var hero Heroxf
+var dragon Dragonxf
 
-func getSaveFilePath() string {
+func getSaveFilePathxf() string {
 	usr, _ := user.Current()
 	saveDir := filepath.Join(usr.HomeDir, ".local", "share")
 	os.MkdirAll(saveDir, os.ModePerm)
 	return filepath.Join(saveDir, "dragonxf_game.save")
 }
 
-func initGame() {
-	saveFile := getSaveFilePath()
+func initGamexf() {
+	saveFile := getSaveFilePathxf()
 	if _, err := os.Stat(saveFile); os.IsNotExist(err) {
-		hero = Hero{0, 1, 14, 50, 50, 4, 0, 0}
-		dragon = Dragon{15, 18, 100, 100, 6, 0}
-		saveGame()
+		hero = Heroxf{0, 1, 14, 50, 50, 4, 0, 0}
+		dragon = Dragonxf{15, 18, 100, 100, 6, 0}
+		saveGamexf()
 	} else {
-		loadGame()
+		loadGamexf()
 	}
 }
 
-func saveGame() {
-	file, _ := os.Create(getSaveFilePath())
+func saveGamexf() {
+	file, _ := os.Create(getSaveFilePathxf())
 	defer file.Close()
 	fmt.Fprintf(file, "%d %d %d %d %d %d %d %d\n", hero.XP, hero.ST, hero.AC, hero.MX, hero.HP, hero.Attk, hero.Dth, hero.PrevXP)
 	fmt.Fprintf(file, "%d %d %d %d %d %d\n", dragon.PR, dragon.AC, dragon.MX, dragon.HP, dragon.Attk, dragon.Dth)
 }
-func loadGame() {
-	file, err := os.Open(getSaveFilePath())
+func loadGamexf() {
+	file, err := os.Open(getSaveFilePathxf())
 	if err != nil {
 		fmt.Println("⚠ Error loading save file, starting a new game.")
-		initGame()
+		initGamexf()
 		return
 	}
 	defer file.Close()
@@ -73,34 +73,60 @@ func loadGame() {
 	_, err = fmt.Fscanf(file, "%d %d %d %d %d %d %d %d", &hero.XP, &hero.ST, &hero.AC, &hero.MX, &hero.HP, &hero.Attk, &hero.Dth, &hero.PrevXP)
 	if err != nil {
 		fmt.Println("⚠ Error reading Chadwick's stats, resetting game.")
-		initGame()
+		initGamexf()
 		return
 	}
 
 	_, err = fmt.Fscanf(file, "%d %d %d %d %d %d", &dragon.PR, &dragon.AC, &dragon.MX, &dragon.HP, &dragon.Attk, &dragon.Dth)
 	if err != nil {
 		fmt.Println("⚠ Error reading Dragon's stats, resetting game.")
-		initGame()
+		initGamexf()
 	}
 }
 
-func attack() {
-	var wg sync.WaitGroup
-	wg.Add(2) // We have two concurrent tasks
+func heroDamagexf() int {
+	damage := rand.Intn(8) + 1 + hero.Attk
+	return damage
+}
+
+func heroCriticalHitsxf() int {
+	damage := 2 * heroDamagexf()
+	// 	damage := 2 * (8 + 1 + hero.Attk)
+	return damage
+}
+
+func dragonDamagexf() int {
+	damage := rand.Intn(8) + 1 + dragon.Attk
+	return damage
+}
+
+func dragonCriticalxf() int {
+	damage := 2 * dragonDamagexf()
+	// 	damage := 2 * (rand.Intn(8) + 1 + dragon.Attk)
+	return damage
+}
+
+func attackxf() {
+	var wgxf sync.WaitGroup
+	wgxf.Add(2) // We have two concurrent tasks
 
 	heroChan := make(chan string, 1)
 	dragonChan := make(chan string, 1)
 
 	// Hero's attack in a goroutine
 	go func() {
-		defer wg.Done()
+		defer wgxf.Done()
 		var result string
 		if hero.ST == 0 {
 			heroRoll1, heroRoll2 := rand.Intn(20)+1+hero.Attk, rand.Intn(20)+1+hero.Attk
 			if heroRoll1 > heroRoll2 {
 				heroRoll := heroRoll1
-				if heroRoll >= dragon.AC {
-					damage := rand.Intn(8) + 1 + hero.Attk
+				if heroRoll-hero.Attk == 20 {
+					damage := heroCriticalHitsxf()
+					dragon.HP -= damage
+					result = fmt.Sprintf("⚔ Chadwick Attacks with advantage!\n🎲 Chadwick rolled: %d\n✅ Chadwick CRITICAL HITS for %d damage, doing double  damage!!!!\n", heroRoll, damage)
+				} else if heroRoll >= dragon.AC {
+					damage := heroDamagexf()
 					dragon.HP -= damage
 					result = fmt.Sprintf("⚔ Chadwick Attacks with advantage!\n🎲 Chadwick rolled: %d\n✅ Chadwick hits for %d damage!\n", heroRoll, damage)
 				} else {
@@ -109,7 +135,7 @@ func attack() {
 			} else {
 				heroRoll := heroRoll2
 				if heroRoll >= dragon.AC {
-					damage := rand.Intn(8) + 1 + hero.Attk
+					damage := heroDamagexf()
 					dragon.HP -= damage
 					result = fmt.Sprintf("⚔ Chadwick Attacks with advantage!\n🎲 Chadwick rolled: %d\n✅ Chadwick hits for %d damage!\n", heroRoll, damage)
 				} else {
@@ -118,8 +144,12 @@ func attack() {
 			}
 		} else {
 			heroRoll := rand.Intn(20) + 1 + hero.Attk
-			if heroRoll >= dragon.AC {
-				damage := rand.Intn(8) + 1 + hero.Attk
+			if heroRoll-hero.Attk == 20 {
+				damage := heroCriticalHitsxf()
+				dragon.HP -= damage
+				result = fmt.Sprintf("⚔ Chadwick Attacks!\n🎲 Chadwick rolled: %d\n✅ Chadwick CRITICAL HITS for %d damage, doing double damage!!!!\n", heroRoll, damage)
+			} else if heroRoll >= dragon.AC {
+				damage := heroDamagexf()
 				dragon.HP -= damage
 				result = fmt.Sprintf("⚔ Chadwick Attacks!\n🎲 Chadwick rolled: %d\n✅ Chadwick hits for %d damage!\n", heroRoll, damage)
 			} else {
@@ -131,14 +161,18 @@ func attack() {
 
 	// Dragon's counterattack in a goroutine
 	go func() {
-		defer wg.Done()
+		defer wgxf.Done()
 		var result string
 		if hero.ST == 0 {
 			dragonRoll1, dragonRoll2 := rand.Intn(20)+1+dragon.Attk, rand.Intn(20)+1+dragon.Attk
 			if dragonRoll1 > dragonRoll2 {
 				dragonRoll := dragonRoll2
-				if dragonRoll >= hero.AC {
-					damage := rand.Intn(8) + 1 + dragon.Attk
+				if dragonRoll-dragon.Attk == 20 {
+					damage := dragonCriticalxf()
+					dragon.HP -= damage
+					result = fmt.Sprintf("\n🐉 Dragon counterattacks with disadvantage!\n🎲 Dragon rolled: %d\n✅ Dragon CRITICAL HITS for %d damage, doing double damage!!!!\n", dragonRoll, damage)
+				} else if dragonRoll >= hero.AC {
+					damage := dragonDamagexf()
 					hero.HP -= damage
 					fmt.Println()
 					result = fmt.Sprintf("\n🐉 Dragon counterattacks with disadvantage!\n🎲 Dragon rolled: %d\n✅ Dragon hits for %d damage!\n", dragonRoll, damage)
@@ -149,7 +183,7 @@ func attack() {
 			} else {
 				dragonRoll := dragonRoll1
 				if dragonRoll >= hero.AC {
-					damage := rand.Intn(8) + 1 + dragon.Attk
+					damage := dragonDamagexf()
 					hero.HP -= damage
 					fmt.Println()
 					result = fmt.Sprintf("\n🐉 Dragon counterattacks with disadvantage!\n🎲 Dragon rolled: %d\n✅ Dragon hits for %d damage!\n", dragonRoll, damage)
@@ -160,8 +194,12 @@ func attack() {
 			}
 		} else {
 			dragonRoll := rand.Intn(20) + 1 + dragon.Attk
-			if dragonRoll >= hero.AC {
-				damage := rand.Intn(8) + 1 + dragon.Attk
+			if dragonRoll-dragon.Attk == 20 {
+				damage := dragonCriticalxf()
+				dragon.HP -= damage
+				result = fmt.Sprintf("\n🐉 Dragon counterattacks!\n🎲 Dragon rolled: %d\n✅ Dragon CRITICAL HITS for %d damage, doing double damage!!!!\n", dragonRoll, damage)
+			} else if dragonRoll >= hero.AC {
+				damage := dragonDamagexf()
 				hero.HP -= damage
 				fmt.Println()
 				result = fmt.Sprintf("\n🐉 Dragon counterattacks!\n🎲 Dragon rolled: %d\n✅ Dragon hits for %d damage!\n", dragonRoll, damage)
@@ -174,7 +212,7 @@ func attack() {
 	}()
 
 	// Wait for both attacks to finish
-	wg.Wait()
+	wgxf.Wait()
 	close(heroChan)
 	close(dragonChan)
 
@@ -182,12 +220,12 @@ func attack() {
 	fmt.Print(<-heroChan)
 	fmt.Print(<-dragonChan)
 
-	resolve()
+	resolvexf()
 }
 
-func resolve() {
+func resolvexf() {
 	if dragon.HP <= 0 {
-		fmt.Printf("\n\033[1mChadwick has slain a dragon!\033[0m\n")
+		fmt.Printf("\n\033[1mChadwick Strongpants has slain a dragon!\033[0m\n")
 		dragon.HP = dragon.MX
 		dragon.Dth++
 		hero.XP += 100
@@ -216,10 +254,10 @@ func resolve() {
 		hero.ST = 1 // Reset stealth only after an attack
 	}
 
-	saveGame()
+	saveGamexf()
 }
 
-func display() {
+func displayxf() {
 	var isStealth bool
 	if hero.ST == 0 {
 		isStealth = true
@@ -275,19 +313,19 @@ func main() {
 		return
 	}
 
-	initGame()
+	initGamexf()
 
 	if *resetFlag {
-		os.Remove(getSaveFilePath())
+		os.Remove(getSaveFilePathxf())
 		fmt.Println()
 		fmt.Println("Game reset!")
-		initGame()
-		display()
+		initGamexf()
+		displayxf()
 		return
 	}
 
 	if *listFlag {
-		display()
+		displayxf()
 	}
 
 	if *stealthFlag {
@@ -305,13 +343,13 @@ func main() {
 			fmt.Println()
 			fmt.Println("Chadwick failed to stealth")
 		}
-		saveGame()
-		display()
+		saveGamexf()
+		displayxf()
 		// 		return
 	}
 
 	if *attackFlag {
-		attack()
-		display()
+		attackxf()
+		displayxf()
 	}
 }
